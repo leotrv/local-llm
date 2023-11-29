@@ -12,7 +12,7 @@ with open('config/config.yml', 'r', encoding='utf8') as ymlfile:
 
 llm = Llama(model_path="/home/leotraven/Development/llms/TheBloke/Llama-2-7B-Chat-GGUF/llama-2-7b-chat.Q2_K.gguf", chat_format="llama-2")
 
-st.title("Document chatbot")
+st.title("Basic Chatbot")
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -30,6 +30,7 @@ if prompt := st.chat_input("What is up?"):
     # Display user message in chat message container
     with st.chat_message("user"):
         st.markdown(prompt)
+
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
@@ -37,14 +38,16 @@ if prompt := st.chat_input("What is up?"):
 
     embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2', model_kwargs={'device': 'cpu'})
     db3 = Chroma(persist_directory=cfg.CHROMA_PATH, embedding_function=embeddings)
-    docs = db3.similarity_search(prompt)
+    docs = db3.similarity_search(prompt, k=cfg.VECTOR_COUNT)
+
     context = "\n\n".join(doc.page_content for doc in docs)
 
+    system_message = [{"role": "system", "content": f"You are an assistant who answers questions about documents. Be concise and do not use more than 3 sentences. You are given a context: {context}"}]
+    messages = system_message + [{"role": message.get("role"), "content": message.get("content")} for message in st.session_state.messages]
+    print(messages)
+
     for response in  llm.create_chat_completion(
-        messages = [
-            {"role": "system", "content": "You are an assistant who answers questions about documents. Be concise and do not use more than 3 sentences. You are given a context: {context}"},
-            {"role": "user", "content": prompt}
-        ],
+        messages = messages,
         stream=True
         ):
             print(response)
